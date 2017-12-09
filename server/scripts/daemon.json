@@ -1,0 +1,7 @@
+{
+"experimental" : true,
+"storage-driver" : "overlay2",
+"labels" : ["provider=scaleway"],
+"mtu": 1500,
+"hosts": ["unix:///var/run/docker.sock"]
+}

@@ -1,0 +1,25 @@
+---
+- include: "{{node_path}}"
+  vars:
+    ssh_user: '{{ssh_user}}'
+    ssh_port: '{{ssh_port}}'
+    ssh_permit_tunnel: '{{ssh_permit_tunnel}}'
+- hosts: localhost
+  connection: local
+  tasks:
+    - name: add a drop all rule before final commit
+      lineinfile: path='/etc/ufw/after.rules'
+                  insertbefore='^COMMIT'
+                  state=present
+                  line='-A ufw-reject-input -j DROP'
+    - name: enable ssh
+      ufw: port='{{ssh_port}}' proto=tcp rule=allow
+    - name: Set firewall default incoming
+    #we accept by default incoming connections because disks are nbd (network block devices)
+      ufw: policy=allow direction=incoming
+    - name: Set firewall default outgoing
+      ufw: policy=allow direction=outgoing
+    - name: enable ufw logging
+      ufw: logging=on
+    - name: enable ufw
+      ufw: state=enabled

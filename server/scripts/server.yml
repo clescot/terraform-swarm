@@ -1,0 +1,54 @@
+---
+- include: "{{node_path}}"
+  vars:
+    ssh_user: '{{ssh_user}}'
+    ssh_port: '{{ssh_port}}'
+    ssh_permit_tunnel: '{{ssh_permit_tunnel}}'
+- hosts: localhost
+  connection: local
+  tasks:
+    - name: add a drop all rule before final commit
+      lineinfile: path='/etc/ufw/after.rules'
+                  insertbefore='^COMMIT'
+                  state=present
+                  line='-A ufw-reject-input -j DROP'
+    - name: enable ssh from internal
+      ufw: port='{{ssh_port}}' proto=tcp src=10.0.0.0/8 rule=allow
+    - pause:
+        seconds: '{{ufw_pause}}'
+    - name: DOCKER SWARM 2377 docker swarm port
+      ufw: port=2377 proto=tcp src=10.0.0.0/8 rule=allow
+    - pause:
+        seconds: '{{ufw_pause}}'
+    - name: DOCKER SWARM 7946 tcp docker swarm port
+      ufw: port=7946 proto=tcp src=10.0.0.0/8 rule=allow
+    - pause:
+        seconds: '{{ufw_pause}}'
+    - name: DOCKER SWARM 7946 udp docker swarm port
+      ufw: port=7946 proto=udp src=10.0.0.0/8 rule=allow
+    - pause:
+        seconds: '{{ufw_pause}}'
+    - name: DOCKER SWARM 4789 udp docker swarm port
+      ufw: port=4789 proto=udp src=10.0.0.0/8 rule=allow
+    - pause:
+        seconds: '{{ufw_pause}}'
+    - name: 80 tcp
+      ufw: port=80 proto=tcp rule=allow
+    - pause:
+        seconds: '{{ufw_pause}}'
+    - name: 443 tcp
+      ufw: port=443 rule=allow
+    - pause:
+        seconds: '{{ufw_pause}}'
+    - name: Set firewall default incoming
+      ufw: policy=allow direction=incoming
+    - pause:
+        seconds: '{{ufw_pause}}'
+    - name: Set firewall default outgoing
+      ufw: policy=allow direction=outgoing
+    - pause:
+        seconds: '{{ufw_pause}}'
+    - name: enable ufw logging
+      ufw: logging=on
+    - name: enable ufw
+      ufw: state=enabled

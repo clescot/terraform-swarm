@@ -1,0 +1,77 @@
+---
+- hosts: localhost
+  connection: local
+
+  #execute before roles
+  pre_tasks:
+    - name: Make sure we have a '{{ssh_user}}' group
+      group:
+        name: '{{ssh_user}}'
+        state: present
+
+    - name: Allow ssh_group to have passwordless sudo
+      lineinfile:
+        dest: /etc/sudoers
+        state: present
+        regexp: "^%'{{ssh_user}}'"
+        line: "%{{ssh_user}} ALL=(ALL) NOPASSWD: ALL"
+        validate: 'visudo -cf %s'
+
+    - name: Add sudoers users to ssh_user group
+      user: name='{{ssh_user}}' groups='{{ssh_user}}' append=yes state=present createhome=yes shell='/bin/bash'
+    - name: Add user to docker group
+      user: name='{{ssh_user}}' group=docker state=present
+    - name: Set up authorized keys for the deployer user
+      authorized_key: user='{{ssh_user}}' key="{{item}}"
+      with_file:
+        -  /opt/ansible/id_rsa.pub
+
+    - name: unlock user
+      shell: "usermod -p '*' {{ssh_user}}"
+
+    - name: Run the equivalent of "apt-get update" as a separate step
+      apt:
+        update_cache: yes
+
+    - name: Upgrade all packages to the latest version
+      apt:
+        name: "docker-ce"
+        state: latest
+
+
+    - name: install aptitude
+      apt: name=aptitude state=present
+
+    # - name: Update and upgrade apt packages
+    #   apt: upgrade=yes force=yes update_cache=yes cache_valid_time=86400 #One day
+
+  #execute after roles
+  post_tasks:
+    - name: install ufw
+      apt: name=ufw state=present
+
+  vars:
+    fail2ban_services:
+      # In Ubuntu 16.04 this is sshd
+      - name: sshd
+        port: '{{ssh_port}}'
+        maxretry: 6
+        bantime: 600
+  roles:
+    - { role: "jnv.unattended-upgrades",
+        unattended_origins_patterns: ['origin=Ubuntu,archive=${distro_codename}-security','o=Ubuntu,a=${distro_codename}-updates'],
+        unattended_automatic_reboot: no,
+        unattended_install_on_shutdown: yes,
+        unattended_ignore_apps_require_restart: yes }
+    - { role: "geerlingguy.ntp",
+            ntp_timezone: "Europe/Paris"}
+    # last role to execute because the ssh port change
+    - { role: "dev-sec.ssh-hardening",
+            ssh_allow_root_with_key: false,
+            ssh_server_ports: ['{{ssh_port}}'],
+            ssh_client_port: '{{ssh_port}}',
+            ssh_permit_tunnel: '{{ssh_permit_tunnel}}',
+            ssh_allow_agent_forwarding: yes,
+            ssh_allow_tcp_forwarding: yes #nécessaire pour connexion bastion
+            }
+    - { role: "tersmitten.fail2ban" }

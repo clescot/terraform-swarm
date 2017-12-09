@@ -1,0 +1,8 @@
+# from galaxy
+- src: dev-sec.ssh-hardening
+
+- src: jnv.unattended-upgrades
+
+- src: geerlingguy.ntp
+
+- src: tersmitten.fail2ban
